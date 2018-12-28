@@ -3,11 +3,13 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Base64;
 
 public class CryptoGui extends JFrame
 {
@@ -27,9 +29,15 @@ public class CryptoGui extends JFrame
     public CryptoGui(FileCrypto fileCryptoObject)
     {
         this.fileCryptoObject = fileCryptoObject;
-        drawFrame();
-        constructMainPanel();
-        addListeners();
+
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                drawFrame();
+                constructMainPanel();
+                addListeners();
+            }
+        });
     }
 
     private void drawFrame()
@@ -89,10 +97,28 @@ public class CryptoGui extends JFrame
             @Override
             public void actionPerformed(ActionEvent e) {
                 int valueReturned = fileChooser.showOpenDialog(CryptoGui.this);
-                if (valueReturned == JFileChooser.APPROVE_OPTION) {
+                if (valueReturned == JFileChooser.APPROVE_OPTION)
+                {
+                    encryptButton.setEnabled(true);
+                    decryptButton.setEnabled(true);
+
                     selectedFile = fileChooser.getSelectedFile();
+                    String fileContent;
                     try {
-                        String fileContent = new String(Files.readAllBytes(selectedFile.toPath()));
+                        if (fileCryptoObject.checkIfCipherText(selectedFile))
+                        {
+                            encryptButton.setEnabled(false);
+                            int offset = 8;
+                            int length = Files.readAllBytes(selectedFile.toPath()).length - 8;
+                            fileContent = new String(Files.readAllBytes(selectedFile.toPath()),offset,length);
+                        }
+                        else
+                        {
+                            decryptButton.setEnabled(false);
+                            fileCryptoObject.closeInputStream();
+                            fileContent = new String(Files.readAllBytes(selectedFile.toPath()));
+                        }
+
                         previewText.setText(null);
                         previewText.append(fileContent);
                     } catch (IOException e1) {
@@ -106,12 +132,22 @@ public class CryptoGui extends JFrame
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    fileCryptoObject.encryptFile(selectedFile,"cipherText.txt");
+                    String outputFileName;
+                    if (selectedFile.getName().startsWith("decrypted-"))
+                        outputFileName = selectedFile.getName().replaceFirst("decrypted-","encrypted-");
+                    else
+                        outputFileName = "encrypted-" + selectedFile.getName();
+
+                    fileCryptoObject.encryptFile(selectedFile,outputFileName);
                 } catch (InvalidKeyException e1) {
                     e1.printStackTrace();
                 } catch (IOException e1) {
                     e1.printStackTrace();
                 } catch (InvalidAlgorithmParameterException e1) {
+                    e1.printStackTrace();
+                } catch (InvalidKeySpecException e1) {
+                    e1.printStackTrace();
+                } catch (NoSuchAlgorithmException e1) {
                     e1.printStackTrace();
                 }
             }
@@ -121,7 +157,13 @@ public class CryptoGui extends JFrame
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
-                    fileCryptoObject.decryptFile(selectedFile,"plainText.txt");
+                    String outputFileName;
+                    if (selectedFile.getName().startsWith("encrypted-"))
+                        outputFileName = selectedFile.getName().replaceFirst("encrypted-","decrypted-");
+                    else
+                        outputFileName = "decrypted-" + selectedFile.getName();
+
+                    fileCryptoObject.decryptFile(selectedFile,outputFileName);
                 } catch (InvalidKeyException e1) {
                     e1.printStackTrace();
                 } catch (IOException e1) {

@@ -4,29 +4,26 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
+import java.util.Arrays;
 
 public class FileCrypto
 {
-    private SecretKey symmetricKey;
     private Cipher crypto;
+    private String password;
     private final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
     private final String ALGORITHM = "AES";
-    private byte[] salt;
-    private String password;
+    private final byte[] headerIdentifier = "Dyssos29".getBytes();
+    private FileInputStream inputStream;
 
     public FileCrypto(String password) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeySpecException
     {
-        salt = generateSalt();
         this.password = password;
-        symmetricKey = generateSecretKey(password);
         crypto = Cipher.getInstance(TRANSFORMATION);
     }
 
@@ -38,75 +35,69 @@ public class FileCrypto
         return salt;
     }
 
-    private SecretKey generateSecretKey(String password) throws NoSuchAlgorithmException, InvalidKeySpecException {
-//        KeyGenerator keyGenerator = null;
-//        keyGenerator = KeyGenerator.getInstance(algorithm);
-//        SecureRandom secureRandom = new SecureRandom();
-//        int keyBitSize = 128;
-//        keyGenerator.init(keyBitSize, secureRandom);
-//
-//        return keyGenerator.generateKey();
+    private byte[] generateIV()
+    {
+        byte[] iv = new byte[16];
+        SecureRandom sRandom = new SecureRandom();
+        sRandom.nextBytes(iv);
+        return iv;
+    }
+
+    private SecretKey generateSecretKey(byte[] salt) throws NoSuchAlgorithmException, InvalidKeySpecException
+    {
         SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
         KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, 10000, 128);
         SecretKey tmp = factory.generateSecret(spec);
-        SecretKeySpec skey = new SecretKeySpec(tmp.getEncoded(), ALGORITHM);
-        return skey;
+        SecretKeySpec key = new SecretKeySpec(tmp.getEncoded(), ALGORITHM);
+        return key;
     }
 
-    public void encryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException {
-        byte[] iv = new byte[16];
-        SecureRandom srandom = new SecureRandom();
-        srandom.nextBytes(iv);
+    public boolean checkIfCipherText(File inputFile) throws IOException
+    {
+        byte[] header = new byte[8];
+        inputStream = new FileInputStream(inputFile);
+        inputStream.read(header);
+        return Arrays.equals(header,headerIdentifier);
+    }
+
+    public void closeInputStream() throws IOException
+    {
+        inputStream.close();
+    }
+
+    public void encryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException, InvalidKeySpecException, NoSuchAlgorithmException
+    {
+        byte[] salt = generateSalt();
+        byte[] iv = generateIV();
+        SecretKey symmetricKey = generateSecretKey(salt);
         crypto.init(Cipher.ENCRYPT_MODE,symmetricKey, new IvParameterSpec(iv));
-        String saltStr = new String(salt);
-        String ivStr = new String(iv);
 
         String plaintext = new String(Files.readAllBytes(inputFile.toPath()));
-        System.out.println("This is the plaintext: " + plaintext);
-        System.out.println("This is in encryp --> salt: " + saltStr + " iv: " + ivStr);
 
-        FileOutputStream outputStream = new FileOutputStream(outputFileName);
+        String pathAndNameOfOutputFile = inputFile.toPath().toString().replaceFirst(inputFile.getName(),outputFileName);
+        FileOutputStream outputStream = new FileOutputStream(pathAndNameOfOutputFile);
+        outputStream.write(headerIdentifier);
         outputStream.write(salt);
         outputStream.write(iv);
         CipherOutputStream cipherOutput = new CipherOutputStream(outputStream,crypto);
-        //cipherOutput.write(Files.readAllBytes(inputFile.toPath()));
         PrintWriter pw = new PrintWriter(new OutputStreamWriter(cipherOutput));
         pw.println(plaintext);
 
         pw.close();
         outputStream.close();
         cipherOutput.close();
-        FileInputStream in = new FileInputStream(outputFileName);
-        InputStreamReader inr = new InputStreamReader(in);
-        BufferedReader inb = new BufferedReader(inr);
-        System.out.println("This should be the plaintext encrypted: " + inb.readLine());
-        in.close();
-        inr.close();
-        inb.close();
     }
 
     public void decryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, InvalidKeySpecException
     {
-        byte[] ivFromFile = new byte[16];
         byte[] salt = new byte[8];
-        FileInputStream inputStream = new FileInputStream(inputFile);
+        byte[] ivFromFile = new byte[16];
         inputStream.read(salt);
         inputStream.read(ivFromFile);
-        String saltStr = new String(salt);
-        String ivStr = new String(ivFromFile);
-        System.out.println("This is the salt: " + saltStr);
-        System.out.println("This is the iv: " + ivStr);
 
-        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        KeySpec spec = new PBEKeySpec(password.toCharArray(), salt, 10000, 128);
-        SecretKey tmp = factory.generateSecret(spec);
-        SecretKeySpec skey = new SecretKeySpec(tmp.getEncoded(), ALGORITHM);
-
-        crypto.init(Cipher.DECRYPT_MODE,skey,new IvParameterSpec(ivFromFile));
+        SecretKey symmetricKey = generateSecretKey(salt);
+        crypto.init(Cipher.DECRYPT_MODE,symmetricKey,new IvParameterSpec(ivFromFile));
         CipherInputStream cipherInput = new CipherInputStream(inputStream,crypto);
-//        byte[] plainText = new byte[(int) inputFile.length()];
-//        cipherInput.read(plainText);
-//        String plainTextStr = new String(plainText);
         InputStreamReader inputReader = new InputStreamReader(cipherInput);
         BufferedReader reader = new BufferedReader(inputReader);
         StringBuilder sb = new StringBuilder();
@@ -121,8 +112,8 @@ public class FileCrypto
         cipherInput.close();
         inputStream.close();
 
-        System.out.println("This is the decrypted data: " + plainTextStr);
-        FileOutputStream outputStream = new FileOutputStream(outputFileName);
+        String pathAndNameOfOutputFile = inputFile.toPath().toString().replaceFirst(inputFile.getName(),outputFileName);
+        FileOutputStream outputStream = new FileOutputStream(pathAndNameOfOutputFile);
         OutputStreamWriter streamWriter = new OutputStreamWriter(outputStream);
         PrintWriter pw = new PrintWriter(streamWriter);
         pw.println(plainTextStr);
