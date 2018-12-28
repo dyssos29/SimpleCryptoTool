@@ -65,7 +65,7 @@ public class FileCrypto
         inputStream.close();
     }
 
-    public void encryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException, InvalidKeySpecException, NoSuchAlgorithmException
+    public File encryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException, InvalidKeySpecException, NoSuchAlgorithmException
     {
         byte[] salt = generateSalt();
         byte[] iv = generateIV();
@@ -75,7 +75,8 @@ public class FileCrypto
         String plaintext = new String(Files.readAllBytes(inputFile.toPath()));
 
         String pathAndNameOfOutputFile = inputFile.toPath().toString().replaceFirst(inputFile.getName(),outputFileName);
-        FileOutputStream outputStream = new FileOutputStream(pathAndNameOfOutputFile);
+        File outputFile = new File(pathAndNameOfOutputFile);
+        FileOutputStream outputStream = new FileOutputStream(outputFile);
         outputStream.write(headerIdentifier);
         outputStream.write(salt);
         outputStream.write(iv);
@@ -86,9 +87,11 @@ public class FileCrypto
         pw.close();
         outputStream.close();
         cipherOutput.close();
+
+        return outputFile;
     }
 
-    public void decryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, InvalidKeySpecException
+    public File decryptFile(File inputFile, String outputFileName) throws InvalidKeyException, IOException, InvalidAlgorithmParameterException, NoSuchAlgorithmException, InvalidKeySpecException
     {
         byte[] salt = new byte[8];
         byte[] ivFromFile = new byte[16];
@@ -113,12 +116,15 @@ public class FileCrypto
         inputStream.close();
 
         String pathAndNameOfOutputFile = inputFile.toPath().toString().replaceFirst(inputFile.getName(),outputFileName);
-        FileOutputStream outputStream = new FileOutputStream(pathAndNameOfOutputFile);
+        File outputFile = new File(pathAndNameOfOutputFile);
+        FileOutputStream outputStream = new FileOutputStream(outputFile);
         OutputStreamWriter streamWriter = new OutputStreamWriter(outputStream);
         PrintWriter pw = new PrintWriter(streamWriter);
         pw.println(plainTextStr);
         pw.close();
         streamWriter.close();
         outputStream.close();
+
+        return outputFile;
     }
 }

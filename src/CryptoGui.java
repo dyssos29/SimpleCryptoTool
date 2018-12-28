@@ -3,13 +3,11 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Base64;
 
 public class CryptoGui extends JFrame
 {
@@ -67,7 +65,7 @@ public class CryptoGui extends JFrame
 
     private void constructMainPanel()
     {
-        previewLabel = new JLabel("File preview");
+        previewLabel = new JLabel("File preview ");
         addToMainPanel(0,0,1,1,10,previewLabel);
 
         previewText = new JTextArea();
@@ -80,9 +78,13 @@ public class CryptoGui extends JFrame
         addToMainPanel(0,3,2,1,10,chooseFileButton);
 
         encryptButton = new JButton("ENCRYPT");
+        encryptButton.setEnabled(false);
+        encryptButton.setToolTipText("<html><b>Choose appropriate file to encrypt.<b/><html>");
         addToMainPanel(0,4,1,1,10,encryptButton);
 
         decryptButton = new JButton("DECRYPT");
+        decryptButton.setEnabled(false);
+        decryptButton.setToolTipText("<html><b>Choose appropriate file to decrypt.<b/><html>");
         addToMainPanel(1,4,1,1,10,decryptButton);
 
         closeButton = new JButton("CLOSE");
@@ -99,31 +101,8 @@ public class CryptoGui extends JFrame
                 int valueReturned = fileChooser.showOpenDialog(CryptoGui.this);
                 if (valueReturned == JFileChooser.APPROVE_OPTION)
                 {
-                    encryptButton.setEnabled(true);
-                    decryptButton.setEnabled(true);
-
                     selectedFile = fileChooser.getSelectedFile();
-                    String fileContent;
-                    try {
-                        if (fileCryptoObject.checkIfCipherText(selectedFile))
-                        {
-                            encryptButton.setEnabled(false);
-                            int offset = 8;
-                            int length = Files.readAllBytes(selectedFile.toPath()).length - 8;
-                            fileContent = new String(Files.readAllBytes(selectedFile.toPath()),offset,length);
-                        }
-                        else
-                        {
-                            decryptButton.setEnabled(false);
-                            fileCryptoObject.closeInputStream();
-                            fileContent = new String(Files.readAllBytes(selectedFile.toPath()));
-                        }
-
-                        previewText.setText(null);
-                        previewText.append(fileContent);
-                    } catch (IOException e1) {
-                        e1.printStackTrace();
-                    }
+                    previewFile(selectedFile);
                 }
             }
         });
@@ -138,7 +117,9 @@ public class CryptoGui extends JFrame
                     else
                         outputFileName = "encrypted-" + selectedFile.getName();
 
-                    fileCryptoObject.encryptFile(selectedFile,outputFileName);
+                    File processedFile = fileCryptoObject.encryptFile(selectedFile,outputFileName);
+                    JOptionPane.showMessageDialog(CryptoGui.this,"The encrypted file is located in the same directory with the original and its name is prefixed with \"encrypted\".","ENCRYPTED SUCCESSFULLY",JOptionPane.PLAIN_MESSAGE);
+                    previewFile(processedFile);
                 } catch (InvalidKeyException e1) {
                     e1.printStackTrace();
                 } catch (IOException e1) {
@@ -150,6 +131,8 @@ public class CryptoGui extends JFrame
                 } catch (NoSuchAlgorithmException e1) {
                     e1.printStackTrace();
                 }
+                encryptButton.setEnabled(false);
+                encryptButton.setToolTipText("<html><b>Choose appropriate file to encrypt.<b/><html>");
             }
         });
 
@@ -163,7 +146,9 @@ public class CryptoGui extends JFrame
                     else
                         outputFileName = "decrypted-" + selectedFile.getName();
 
-                    fileCryptoObject.decryptFile(selectedFile,outputFileName);
+                    File processedFile = fileCryptoObject.decryptFile(selectedFile,outputFileName);
+                    JOptionPane.showMessageDialog(CryptoGui.this,"The decrypted file is located in the same directory with the original and its name is prefixed with \"decrypted\".","DECRYPTED SUCCESSFULLY",JOptionPane.PLAIN_MESSAGE);
+                    previewFile(processedFile);
                 } catch (InvalidKeyException e1) {
                     e1.printStackTrace();
                 } catch (IOException e1) {
@@ -175,6 +160,8 @@ public class CryptoGui extends JFrame
                 } catch (InvalidKeySpecException e1) {
                     e1.printStackTrace();
                 }
+                decryptButton.setEnabled(false);
+                decryptButton.setToolTipText("<html><b>Choose appropriate file to decrypt.<b/><html>");
             }
         });
 
@@ -184,5 +171,38 @@ public class CryptoGui extends JFrame
                 System.exit(0);
             }
         });
+    }
+
+    private void previewFile(File aFile)
+    {
+        encryptButton.setEnabled(true);
+        decryptButton.setEnabled(true);
+        encryptButton.setToolTipText("<html><b>Choose appropriate file to encrypt.<b/><html>");
+        decryptButton.setToolTipText("<html><b>Choose appropriate file to decrypt.<b/><html>");
+
+        String fileContent;
+        try {
+            if (fileCryptoObject.checkIfCipherText(aFile))
+            {
+                encryptButton.setEnabled(false);
+                decryptButton.setToolTipText(null);
+                int offset = 8;
+                int length = Files.readAllBytes(aFile.toPath()).length - 8;
+                fileContent = new String(Files.readAllBytes(aFile.toPath()),offset,length);
+            }
+            else
+            {
+                decryptButton.setEnabled(false);
+                encryptButton.setToolTipText(null);
+                fileCryptoObject.closeInputStream();
+                fileContent = new String(Files.readAllBytes(aFile.toPath()));
+            }
+
+            previewLabel.setText("File preview: " + aFile.getName());
+            previewText.setText(null);
+            previewText.append(fileContent);
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
     }
 }

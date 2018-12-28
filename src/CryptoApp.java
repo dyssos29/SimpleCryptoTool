@@ -4,20 +4,20 @@ import java.security.spec.InvalidKeySpecException;
 
 public class CryptoApp
 {
-    private final static String PASSWORD = "I_Love_Crypto";
-
     public static void main(String[] args)
     {
-        try {
-            FileCrypto fileCrypto = new FileCrypto(PASSWORD);
-            CryptoGui gui = new CryptoGui(fileCrypto);
-            gui.setVisible(true);
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (NoSuchPaddingException e) {
-            e.printStackTrace();
-        } catch (InvalidKeySpecException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            FileCrypto fileCrypto = new FileCrypto(PASSWORD);
+//            CryptoGui gui = new CryptoGui(fileCrypto);
+//            gui.setVisible(true);
+//        } catch (NoSuchAlgorithmException e) {
+//            e.printStackTrace();
+//        } catch (NoSuchPaddingException e) {
+//            e.printStackTrace();
+//        } catch (InvalidKeySpecException e) {
+//            e.printStackTrace();
+//        }
+        LoginGui loginGui = new LoginGui();
+        loginGui.setVisible(true);
     }
 }
